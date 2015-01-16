@@ -1,0 +1,187 @@
+<script src="../lib/jquery-2.1.3.min.js"></script>
+
+<style>
+html, body {
+  overflow: hidden;
+  
+  width: 100%; height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+canvas {
+  position: absolute;
+  top: 0; left: 0;
+}
+
+#sim {
+  z-index: 5;
+}
+</style>
+
+<canvas id="grid"></canvas>
+<canvas id="sim"></canvas>
+
+<script>
+
+var canvas, ctx;
+
+Math.TAU = 2 * Math.PI;
+var U_CUAD = 10;
+var U_CUAD_ALT = 100;
+var VEL_SONIDO = 340.29; // pixeles / seg
+var VEL_PARTICULA = VEL_SONIDO * 1.1; // ^
+var FREQ_ONDAS = 30; // ondas / seg
+var DUR_ONDA = 1; // seg
+
+var ondas = [];
+var particula = {x: 100, y: 200};
+var last_update;
+var first_update;
+var pause = false;
+
+function onWindowResize() {
+  var w = $(window).width();
+  var h = $(window).height();
+  
+  $('canvas').attr({
+    width: w,
+    height: h
+  });
+  
+  particula.y = U_CUAD * Math.round(h/2/U_CUAD);
+  
+  dibujarCuadricula();
+}
+
+function onWindowKeyPress(e) {
+  if (e.which === 32) {
+    pause = !pause;
+    last_update = getTime();
+  }
+}
+
+function dibujarCuadricula() {
+  var canvas = $('#grid');
+  var ctx = canvas[0].getContext('2d');
+  var w = canvas.width();
+  var h = canvas.height();
+  
+  ctx.save();
+  ctx.clearRect(0, 0, w, h);
+  ctx.translate(-0.5, -0.5);
+  
+  for (var i = 0; i < h; i += U_CUAD) {
+    ctx.beginPath();
+    ctx.moveTo(0, i);
+    ctx.lineTo(w, i);
+    ctx.strokeStyle = (i % U_CUAD_ALT === 0) ? '#CCC' : '#EEE';
+    ctx.stroke();
+  }
+  
+  for (var i = 0; i < w; i += U_CUAD) {
+    ctx.beginPath();
+    ctx.moveTo(i, 0);
+    ctx.lineTo(i, h);
+    ctx.strokeStyle = (i % U_CUAD_ALT === 0) ? '#CCC' : '#EEE';
+    ctx.stroke();
+  }
+  
+  ctx.restore();
+}
+
+function getTime() {
+  return (new Date()).getTime() / 1000;
+}
+
+function nuevaOnda() {
+  ondas.push({
+    x: particula.x,
+    y: particula.y,
+    r: 0,
+    t: 0
+  });
+}
+
+function animate() {
+  var now = getTime();
+  var dt = now - last_update;
+  
+  particula.x += VEL_PARTICULA * dt;
+  //particula.x = 200 + 100 * Math.cos((now - first_update) * Math.PI);
+  //particula.y = 200 + 100 * Math.sin((now - first_update) * Math.PI);
+  
+  var remover = [];
+  
+  ondas.forEach(function (onda, i) {
+    if (onda.t > DUR_ONDA) {
+      remover.push(i);
+      return;
+    }
+    
+    onda.r += VEL_SONIDO * dt;
+    onda.t += dt;
+  });
+  
+  remover.forEach(function (i) {
+    ondas.splice(i, 1);
+  });
+  
+  if (ondas.slice(-1)[0].t >= 1/FREQ_ONDAS) {
+    nuevaOnda();
+  }
+  
+  last_update = now;
+}
+
+function render() {
+  ctx.clearRect(0, 0, canvas.width(), canvas.height());
+  
+  var now = getTime();
+  
+  ctx.save();
+  ctx.translate(-0.5, -0.5);
+  
+  ondas.forEach(function (onda) {
+    ctx.beginPath();
+    ctx.arc(onda.x, onda.y, onda.r, 0, Math.TAU, false);
+    ctx.strokeStyle = 'rgba(0, 0, 0, ' + (1 - onda.t/DUR_ONDA) + ')';
+    ctx.stroke();
+    
+    ctx.fillStyle = 'blue';
+    ctx.fillRect(onda.x - 1, onda.y - 1, 2, 2);
+  });
+  
+  ctx.beginPath();
+  ctx.arc(particula.x, particula.y, 2, 0, Math.TAU, false);
+  ctx.fillStyle = 'red';
+  ctx.fill();
+  
+  ctx.restore();
+}
+
+function updateCanvas() {
+  if (!pause) {
+    animate();
+  
+    render();
+  }
+  
+  requestAnimationFrame(updateCanvas);
+}
+
+$(function () {
+  canvas = $('#sim');
+  ctx = canvas[0].getContext('2d');
+  ctx.translate(-0.5, -0.5);
+  
+  $(window).resize(onWindowResize).resize();
+  
+  $(window).keypress(onWindowKeyPress);
+  
+  first_update = last_update = getTime();
+  nuevaOnda();
+  updateCanvas();
+});
+
+</script>

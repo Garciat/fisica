@@ -1,0 +1,230 @@
+<script src="three.r57.js"></script>
+<script src="three.TrackballControls.js"></script>
+<script src="stats.min.js"></script>
+<script src="Detector.js"></script>
+<script src="jquery-1.9.1.js"></script>
+
+<style>
+  body {
+    margin: 0;
+  }
+</style>
+
+<div id="container" />
+
+<script>
+  // === Constantes
+  Math.TAU = 2 * Math.PI;
+  var AXIS_LENGTH = 250;
+  var PARTICLE_RADIUS = 5;
+
+  var container, panel;
+  
+  var scene, camera, controls, renderer;
+  var stats;
+  var particle;
+
+  function setup() {
+    var container = $('#container');
+    
+    camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 10000);
+    camera.position.x = camera.position.z = camera.position.y = 300;
+    
+    scene = new THREE.Scene();
+    
+    for (var i = 0; i < 3; ++i) {
+      var vec1 = new THREE.Vector3(), vec2 = new THREE.Vector3();
+      var pos1 = [0, 0, 0], pos2 = [0, 0, 0];
+      pos1[i] = -AXIS_LENGTH;
+      pos2[i] = AXIS_LENGTH;
+      vec1.set.apply(vec1, pos1);
+      vec2.set.apply(vec2, pos2);
+
+      var geometry = new THREE.Geometry();
+      geometry.vertices.push(vec1);
+      geometry.vertices.push(vec2);
+
+      material = new THREE.LineBasicMaterial({ color: [0xFF0000, 0x00FF00, 0x0000FF][i] });
+
+      var mesh = new THREE.Line(geometry, material);
+
+      scene.add(mesh);
+    }
+    
+    if (Detector.webgl) {
+      particle = new THREE.Mesh(new THREE.SphereGeometry(PARTICLE_RADIUS, 50, 50), new THREE.MeshLambertMaterial({
+        color: 0x0000ff
+      }));
+      
+    } else {
+      particle = new THREE.Particle(new THREE.ParticleCanvasMaterial({
+        color: 0x000000, program: function (ctx) {
+          ctx.beginPath();
+          ctx.arc(0, 0, PARTICLE_RADIUS, 0, Math.TAU, true);
+          ctx.closePath();
+          ctx.fill();
+        }}));
+    }
+
+    scene.add(particle);
+    
+    renderer = Detector.webgl ? new THREE.WebGLRenderer() : new THREE.CanvasRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+
+    container.append(renderer.domElement);
+    $(window).resize(function () {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      controls.handleResize();
+    });
+    
+    controls = new THREE.TrackballControls(camera, renderer.domElement);
+    
+    stats = new Stats();
+    stats.domElement.style.position = 'absolute';
+    stats.domElement.style.top = '0px';
+    stats.domElement.style.zIndex = 100;
+    container.append(stats.domElement);
+  }
+  
+  var last_loop = 0;
+  var last_pos;
+
+  function loop(time) {
+    if (!last_loop) {
+      last_loop = time;
+    }
+    
+    controls.update();
+    
+    var dt = time - last_loop;
+    
+    var n = 100;
+    for (var i = 0; i < n; ++i)
+      animate(tscl / n);
+    
+    var now_pos = particle.position.clone();
+    
+    if (last_pos) {
+      var material = new THREE.LineBasicMaterial({ color: 0x000000 });
+      var geometry = new THREE.Geometry();
+      geometry.vertices.push(last_pos);
+      geometry.vertices.push(now_pos);
+      
+      var line = new THREE.Line(geometry, material);
+      scene.add(line);
+    }
+    
+    last_pos = now_pos;
+    
+    renderer.render(scene, camera);
+    
+    stats.update();
+    
+    requestAnimationFrame(loop);
+    
+    last_loop = time;
+  }
+  
+  // --- CODIGO
+
+  var vel;
+  var fld;
+  var fldx;
+  var tscl;
+  
+  var t1 = new THREE.Vector3();
+  var t2 = new THREE.Vector3();
+  var t3 = new THREE.Vector3();
+  var t4 = new THREE.Vector3();
+  var t5 = new THREE.Vector3();
+  
+  function animate(dt) {
+    // http://gamedev.stackexchange.com/a/41917
+    t1.copy(vel);
+    var acc = t1.cross(fldx); // v X B
+    
+    t2.copy(vel);
+    t3.copy(acc);
+    t3.multiplyScalar(dt/2);
+    t2.add(t3);
+    var ds = t2.multiplyScalar(dt);
+    
+    particle.position.add(ds);
+    
+    acc.multiplyScalar(dt);
+    
+    vel.add(acc);
+    t4.copy(vel);
+    var acc2 = t4.cross(fldx);
+    acc2.sub(acc);
+    acc2.multiplyScalar(dt/2);
+    vel.add(acc2);
+    
+    t5.copy(vel);
+    t5.multiplyScalar(dt);
+    particle.position.add(t5);
+    
+    /*
+    var acc = vel.clone().cross(fldx); // v X B
+    particle.position.add(vel.clone().add(acc.clone().multiplyScalar(dt/2)).multiplyScalar(dt));
+    vel.add(acc.multiplyScalar(dt));
+    var acc2 = vel.clone().cross(fldx);
+    vel.add(acc2.sub(acc).multiplyScalar(dt/2));
+    
+    particle.position.add(vel.clone().multiplyScalar(dt));
+    */
+  }
+  
+  function leer_dato(titulo, val) {
+    return Number(prompt(titulo, val));
+  }
+
+  // MAIN
+  $(function () {
+    var ven = leer_dato('Velocidad de entrada (m/s)', 9e7);
+    var ang = leer_dato('Angulo de entrada (grados)', 85) * Math.PI / 180;
+    var chg = leer_dato('Carga de particula (coulomb)', 1.6e-19);
+    var mss = leer_dato('Masa de particula (kg)', 9.11e-31);
+    var campo = leer_dato('Campo magnetico (tesla)', 1e-5);
+    tscl = leer_dato('Escala de tiempo', 5e-8);
+    
+    vel = new THREE.Vector3(ven * Math.sin(ang), ven * Math.cos(ang), 0);
+    fld = new THREE.Vector3(0, campo, 0);
+    
+    fldx = fld.clone().multiplyScalar(chg / mss);
+    
+    var vel_ang = campo * chg / mss;
+    var periodo = 2 * Math.PI / vel_ang;
+    var paso = ven * Math.cos(ang) * periodo;
+    var radio = mss * ven  / (campo * Math.sin(ang) * chg);
+    
+    console.log('Velocidad angular: ', vel_ang);
+    console.log('Periodo: ', periodo);
+    console.log('Paso: ', paso);
+    console.log('Radio: ', radio);
+    
+    setup();
+    
+    var arr_radio = new THREE.ArrowHelper(
+      new THREE.Vector3(0, 0, 1),
+      new THREE.Vector3(0, 0, 0),
+      radio * 1.15,
+      0xFF0000
+    );
+    scene.add(arr_radio);
+    
+    var arr_paso = new THREE.ArrowHelper(
+      new THREE.Vector3(0, 1, 0),
+      new THREE.Vector3(radio*1.3, 1.3*paso/4, radio*1.3),
+      paso *1.2,
+      0xFF0000
+    );
+    scene.add(arr_paso);
+    
+    requestAnimationFrame(loop);
+  });
+  
+  // --- CODIGO
+</script>

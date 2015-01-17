@@ -8,129 +8,205 @@ body {
 </style>
 
 <script>
-  var camera, scene, renderer, controls;
+var camera, scene, renderer, controls;
 
-  function Carga(valor, posicion) {
-    this.valor = valor;
-    this.posicion = posicion;
+var Vec3 = THREE.Vector3;
+
+function writeVec3(buffer, i, vec) {
+  buffer[i*3 + 0] = vec.x;
+  buffer[i*3 + 1] = vec.y;
+  buffer[i*3 + 2] = vec.z;
+}
+
+function Charge(value, position) {
+  this.value = value;
+  this.position = position;
+}
+
+Charge.prototype.electricFieldAt = function(point, v) {
+  v.subVectors(point, this.position);
+  v.setLength(this.value / v.lengthSq());
+  return v;
+};
+
+Charge.prototype.isTooClose = function (point) {
+  return point.distanceTo(this.position) < 1;
+};
+
+function ChargeSystem() {
+  this.charges = [];
+}
+
+ChargeSystem.prototype.addCharge = function (value, x, y, z) {
+  this.charges.push(new Charge(value, new Vec3(x, y, z)));
+};
+
+ChargeSystem.prototype.electricFieldAt = function (point, v, w) {
+  v.set(0, 0, 0);
+  
+  for (var i = 0; i < this.charges.length; ++i) {
+    var field = this.charges[i].electricFieldAt(point, w);
+    v.add(field);
   }
+  
+  return v;
+};
 
-  var cargas = [
-    new Carga(1, new THREE.Vector3(200, 0, 0)),
-    new Carga(-1, new THREE.Vector3(-200, 0, 0))
-  ];
-
-  function update() {
-    var numSim = 20;
-    var lonSim = 2e5;
-    var vertsSim = [];
-    var radCarga = 10;
-
-    var hvInit = new THREE.Vector3();
-    var hvEfecto = new THREE.Vector3();
-    var hvDir = new THREE.Vector3();
-
-    var sphGeom = new THREE.SphereGeometry(radCarga, 16, 16);
-    var sphMatr = new THREE.MeshNormalMaterial();
-
-    cargas.forEach(function (carga) {
-      var mesh = new THREE.Mesh(sphGeom, sphMatr);
-      mesh.position.copy(carga.posicion);
-      scene.add(mesh);
-
-      if (carga.valor < 0) {
-        return;
-      }
-
-      var radsDelta = 2 * Math.PI / numSim;
-      var radsSim = 0;
-
-      for (var i = 0; i < numSim; ++i) {
-        radsSim += radsDelta;
-        var posSim = hvInit.set(5 * Math.cos(radsSim), 5 * Math.sin(radsSim), 0).add(carga.posicion);
-
-        vertsSim[i] = [];
-
-        for (var j = 0; j < lonSim; ++j) {
-          var efecto = hvEfecto.set(0, 0, 0);
-
-          cargas.forEach(function (carga2) {
-            var dir = hvDir.subVectors(posSim, carga2.posicion);
-
-            dir.setLength(carga2.valor / dir.lengthSq());
-
-            efecto.add(dir);
-          });
-
-          efecto.normalize();
-
-          posSim.add(efecto);
-
-          vertsSim[i].push(posSim.clone());
-
-          var tooClose = false;
-          var closeEnough = false;
-
-          cargas.forEach(function (carga2) {
-            var dist = carga2.posicion.distanceTo(posSim);
-
-            if (carga !== carga2 && dist <= radCarga) {
-              tooClose = true;
-            }
-
-            if (dist <= 10000) {
-              closeEnough = closeEnough || true;
-            }
-          });
-
-          if (tooClose || !closeEnough) {
-            break;
-          }
-        }
-
-        var material = new THREE.LineBasicMaterial({
-          color: 0x0000FF
-        });
-
-        var geometry = new THREE.Geometry();
-        geometry.vertices = vertsSim[i];
-
-        var line = new THREE.Line(geometry, material);
-        scene.add(line);
-      }
-    });
+ChargeSystem.prototype.isTooClose = function (point) {
+  var result = false;
+  
+  for (var i = 0; i < this.charges.length; ++i) {
+    result = result || this.charges[i].isTooClose(point);
   }
+  
+  return result;
+};
 
-  function init() {
-    camera = new THREE.PerspectiveCamera(25, window.innerWidth / window.innerHeight, 1, 100000);
-    camera.position.z = 1000;
+ChargeSystem.prototype.isTooFar = function (point) {
+  return point.length() > 1e4;
+};
 
-    scene = new THREE.Scene();
-
-    renderer = new THREE.WebGLRenderer({alpha: true});
-    renderer.setSize(window.innerWidth, window.innerHeight);
-
-    controls = new THREE.TrackballControls(camera);
-    controls.addEventListener('change', render);
-
-    document.body.appendChild(renderer.domElement);
+ChargeSystem.prototype.electricFieldTrajectory = function (buffer, init, depth) {
+  var position = init.clone();
+  var v1 = new Vec3();
+  var v2 = new Vec3();
+  
+  writeVec3(buffer, 0, position);
+  
+  var i = 1;
+  
+  for ( ; i < depth + 1; ++i) {
+    var field = this.electricFieldAt(position, v1, v2);
+    field.normalize();
+    
+    position.add(field);
+    
+    writeVec3(buffer, i, position);
+    
+    if (i % 10 == 0) {
+      if (this.isTooClose(position) || this.isTooFar(position))
+        break;
+    }
   }
+  
+  return i;
+};
 
-  function render() {
-    renderer.render(scene, camera);
+// returns an array of line vertices for each charge
+ChargeSystem.prototype.electricFieldSimulation = function (lines, depth) {
+  console.profile('simulation');
+  
+  var buffer     = new Float32Array(3 * (depth + 1));
+  var v1         = new Vec3();
+  var slice      = 2 * Math.PI / lines;
+  var simulation = [];
+  
+  for (var i = 0; i < this.charges.length; ++i) {
+    var charge = this.charges[i];
+    var charge_lines = [];
+    
+    simulation.push(charge_lines);
+    
+    if (charge.value <= 0) {
+      continue;
+    }
+    
+    var angle = 0;
+    
+    for (var j = 0; j < lines; ++j) {
+      var init = v1.set(Math.cos(angle), Math.sin(angle));
+      init.multiplyScalar(5);
+      init.add(charge.position);
+      
+      angle += slice;
+      
+      var count = this.electricFieldTrajectory(buffer, init, depth);
+      var vertices = new Float32Array(buffer.subarray(0, 3 * count));
+      
+      charge_lines.push(vertices);
+    }
   }
+  
+  console.profileEnd();
+  
+  return simulation;
+};
 
-  function animate() {
-    requestAnimationFrame(animate);
-    controls.update();
-  }
+var system = new ChargeSystem();
+system.addCharge(+1, +200, 0, 0);
+system.addCharge(-1, -200, 0, 0);
 
-  window.addEventListener('load', function () {
-    document.body.style.overflow = 'hidden';
+var sphere_geometry = new THREE.SphereGeometry(10, 16, 16);
+var sphere_material = new THREE.MeshNormalMaterial();
 
-    init();
-    update();
-    render();
-    animate();
+function placeChargeSphere(charge) {
+  var mesh = new THREE.Mesh(sphere_geometry, sphere_material);
+  mesh.position.copy(charge.position);
+  
+  scene.add(mesh);
+}
+
+function placeLine(vertices) {
+  var material = new THREE.LineBasicMaterial({
+    color: 0x0000FF
   });
+  
+  var geometry = new THREE.BufferGeometry();
+  geometry.addAttribute('position', new THREE.BufferAttribute(vertices, 3));
+  
+  var line = new THREE.Line(geometry, material);
+  scene.add(line);
+}
+
+function update() {
+  var lines = 50;
+  var depth = 100000;
+  var simulation = system.electricFieldSimulation(lines, depth);
+  
+  for (var i = 0; i < simulation.length; ++i) {
+    var charge = system.charges[i];
+    var charge_lines = simulation[i];
+    
+    placeChargeSphere(charge);
+    
+    for (var j = 0; j < charge_lines.length; ++j) {
+      var vertices = charge_lines[j];
+      
+      placeLine(vertices);
+    }
+  }
+}
+
+function init() {
+  camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 1, 100000);
+  camera.position.z = 1000;
+
+  scene = new THREE.Scene();
+
+  renderer = new THREE.WebGLRenderer({alpha: true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+
+  controls = new THREE.TrackballControls(camera);
+  controls.addEventListener('change', render);
+
+  document.body.appendChild(renderer.domElement);
+}
+
+function render() {
+  renderer.render(scene, camera);
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+}
+
+window.addEventListener('load', function () {
+  document.body.style.overflow = 'hidden';
+
+  init();
+  update();
+  render();
+  animate();
+});
 </script>

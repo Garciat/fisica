@@ -3,134 +3,134 @@
 
 <style>
 body {
-	margin: 0;
+  margin: 0;
 }
 </style>
 
 <script>
-	var camera, scene, renderer, controls;
+  var camera, scene, renderer, controls;
 
-	function Carga(valor, posicion) {
-		this.valor = valor;
-		this.posicion = posicion;
-	}
+  function Carga(valor, posicion) {
+    this.valor = valor;
+    this.posicion = posicion;
+  }
 
-	var cargas = [
-		new Carga(1, new THREE.Vector3(200, 0, 0)),
-		new Carga(-1, new THREE.Vector3(-200, 0, 0))
-	];
+  var cargas = [
+    new Carga(1, new THREE.Vector3(200, 0, 0)),
+    new Carga(-1, new THREE.Vector3(-200, 0, 0))
+  ];
 
-	function update() {
-		var numSim = 20;
-		var lonSim = 2e5;
-		var vertsSim = [];
-		var radCarga = 10;
+  function update() {
+    var numSim = 20;
+    var lonSim = 2e5;
+    var vertsSim = [];
+    var radCarga = 10;
 
-		var hvInit = new THREE.Vector3();
-		var hvEfecto = new THREE.Vector3();
-		var hvDir = new THREE.Vector3();
+    var hvInit = new THREE.Vector3();
+    var hvEfecto = new THREE.Vector3();
+    var hvDir = new THREE.Vector3();
 
-		var sphGeom = new THREE.SphereGeometry(radCarga, 16, 16);
-		var sphMatr = new THREE.MeshNormalMaterial();
+    var sphGeom = new THREE.SphereGeometry(radCarga, 16, 16);
+    var sphMatr = new THREE.MeshNormalMaterial();
 
-		cargas.forEach(function (carga) {
-			var mesh = new THREE.Mesh(sphGeom, sphMatr);
-			mesh.position.copy(carga.posicion);
-			scene.add(mesh);
+    cargas.forEach(function (carga) {
+      var mesh = new THREE.Mesh(sphGeom, sphMatr);
+      mesh.position.copy(carga.posicion);
+      scene.add(mesh);
 
-			if (carga.valor < 0) {
-				return;
-			}
+      if (carga.valor < 0) {
+        return;
+      }
 
-			var radsDelta = 2 * Math.PI / numSim;
-			var radsSim = 0;
+      var radsDelta = 2 * Math.PI / numSim;
+      var radsSim = 0;
 
-			for (var i = 0; i < numSim; ++i) {
-				radsSim += radsDelta;
-				var posSim = hvInit.set(5 * Math.cos(radsSim), 5 * Math.sin(radsSim), 0).add(carga.posicion);
+      for (var i = 0; i < numSim; ++i) {
+        radsSim += radsDelta;
+        var posSim = hvInit.set(5 * Math.cos(radsSim), 5 * Math.sin(radsSim), 0).add(carga.posicion);
 
-				vertsSim[i] = [];
+        vertsSim[i] = [];
 
-				for (var j = 0; j < lonSim; ++j) {
-					var efecto = hvEfecto.set(0, 0, 0);
+        for (var j = 0; j < lonSim; ++j) {
+          var efecto = hvEfecto.set(0, 0, 0);
 
-					cargas.forEach(function (carga2) {
-						var dir = hvDir.subVectors(posSim, carga2.posicion);
+          cargas.forEach(function (carga2) {
+            var dir = hvDir.subVectors(posSim, carga2.posicion);
 
-						dir.setLength(carga2.valor / dir.lengthSq());
+            dir.setLength(carga2.valor / dir.lengthSq());
 
-						efecto.add(dir);
-					});
+            efecto.add(dir);
+          });
 
-					efecto.normalize();
+          efecto.normalize();
 
-					posSim.add(efecto);
+          posSim.add(efecto);
 
-					vertsSim[i].push(posSim.clone());
+          vertsSim[i].push(posSim.clone());
 
-					var tooClose = false;
-					var closeEnough = false;
+          var tooClose = false;
+          var closeEnough = false;
 
-					cargas.forEach(function (carga2) {
-						var dist = carga2.posicion.distanceTo(posSim);
+          cargas.forEach(function (carga2) {
+            var dist = carga2.posicion.distanceTo(posSim);
 
-						if (carga !== carga2 && dist <= radCarga) {
-							tooClose = true;
-						}
+            if (carga !== carga2 && dist <= radCarga) {
+              tooClose = true;
+            }
 
-						if (dist <= 10000) {
-							closeEnough = closeEnough || true;
-						}
-					});
+            if (dist <= 10000) {
+              closeEnough = closeEnough || true;
+            }
+          });
 
-					if (tooClose || !closeEnough) {
-						break;
-					}
-				}
+          if (tooClose || !closeEnough) {
+            break;
+          }
+        }
 
-				var material = new THREE.LineBasicMaterial({
-					color: 0x0000FF
-				});
+        var material = new THREE.LineBasicMaterial({
+          color: 0x0000FF
+        });
 
-				var geometry = new THREE.Geometry();
-				geometry.vertices = vertsSim[i];
+        var geometry = new THREE.Geometry();
+        geometry.vertices = vertsSim[i];
 
-				var line = new THREE.Line(geometry, material);
-				scene.add(line);
-			}
-		});
-	}
+        var line = new THREE.Line(geometry, material);
+        scene.add(line);
+      }
+    });
+  }
 
-	function init() {
-		camera = new THREE.PerspectiveCamera(25, window.innerWidth / window.innerHeight, 1, 100000);
-		camera.position.z = 1000;
+  function init() {
+    camera = new THREE.PerspectiveCamera(25, window.innerWidth / window.innerHeight, 1, 100000);
+    camera.position.z = 1000;
 
-		scene = new THREE.Scene();
+    scene = new THREE.Scene();
 
-		renderer = new THREE.WebGLRenderer({alpha: true});
-		renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer = new THREE.WebGLRenderer({alpha: true});
+    renderer.setSize(window.innerWidth, window.innerHeight);
 
-		controls = new THREE.TrackballControls(camera);
-		controls.addEventListener('change', render);
+    controls = new THREE.TrackballControls(camera);
+    controls.addEventListener('change', render);
 
-		document.body.appendChild(renderer.domElement);
-	}
+    document.body.appendChild(renderer.domElement);
+  }
 
-	function render() {
-		renderer.render(scene, camera);
-	}
+  function render() {
+    renderer.render(scene, camera);
+  }
 
-	function animate() {
-		requestAnimationFrame(animate);
-		controls.update();
-	}
+  function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+  }
 
-	window.addEventListener('load', function () {
-		document.body.style.overflow = 'hidden';
+  window.addEventListener('load', function () {
+    document.body.style.overflow = 'hidden';
 
-		init();
-		update();
-		render();
-		animate();
-	});
+    init();
+    update();
+    render();
+    animate();
+  });
 </script>

@@ -3,138 +3,138 @@
 
 <style>
 body {
-	margin: 0;
+  margin: 0;
 }
 </style>
 
 <script>
-	var camera, scene, renderer, controls;
+  var camera, scene, renderer, controls;
 
-	function Carga(valor, posicion) {
-		this.valor = valor;
-		this.posicion = posicion;
-	}
+  function Carga(valor, posicion) {
+    this.valor = valor;
+    this.posicion = posicion;
+  }
 
-	var cargas = [
-		new Carga(1, new THREE.Vector3(0, 400, 0)),
-		new Carga(-1, new THREE.Vector3(0, -400, 0)),
-		new Carga(1, new THREE.Vector3(400, 0, 0)),
-		new Carga(-1, new THREE.Vector3(-400, 0, 0)),
-		new Carga(1, new THREE.Vector3(0, 0, 400)),
-		new Carga(-1, new THREE.Vector3(0, 0, -400))
-	];
+  var cargas = [
+    new Carga(1, new THREE.Vector3(0, 400, 0)),
+    new Carga(-1, new THREE.Vector3(0, -400, 0)),
+    new Carga(1, new THREE.Vector3(400, 0, 0)),
+    new Carga(-1, new THREE.Vector3(-400, 0, 0)),
+    new Carga(1, new THREE.Vector3(0, 0, 400)),
+    new Carga(-1, new THREE.Vector3(0, 0, -400))
+  ];
 
-	function update() {
-		// numero de simulaciones
-		var numSim = 50;
-		// longitud de simulacion (pasos)
-		var lonSim = 1e5;
-		// radio de carga
-		var radCarga = 10;
+  function update() {
+    // numero de simulaciones
+    var numSim = 50;
+    // longitud de simulacion (pasos)
+    var lonSim = 1e5;
+    // radio de carga
+    var radCarga = 10;
 
-		var sphGeom = new THREE.SphereGeometry(radCarga, 5, 5);
-		var sphMatr = new THREE.MeshNormalMaterial();
+    var sphGeom = new THREE.SphereGeometry(radCarga, 5, 5);
+    var sphMatr = new THREE.MeshNormalMaterial();
 
-		for (var iC = 0, nC = cargas.length; iC < nC; ++iC) {
-			var carga = cargas[iC];
+    for (var iC = 0, nC = cargas.length; iC < nC; ++iC) {
+      var carga = cargas[iC];
 
-			var mesh = new THREE.Mesh(sphGeom, sphMatr);
-			mesh.position = carga.posicion;
-			scene.add(mesh);
-		}
+      var mesh = new THREE.Mesh(sphGeom, sphMatr);
+      mesh.position = carga.posicion;
+      scene.add(mesh);
+    }
 
-		cargas.forEach(function (carga) {
-			for (var i = 0; i < sphGeom.vertices.length; ++i) {
-				var radsSim = 2 * Math.PI * i / numSim;
-				var posSim = sphGeom.vertices[i].clone().add(carga.posicion);
-				var verts = [];
+    cargas.forEach(function (carga) {
+      for (var i = 0; i < sphGeom.vertices.length; ++i) {
+        var radsSim = 2 * Math.PI * i / numSim;
+        var posSim = sphGeom.vertices[i].clone().add(carga.posicion);
+        var verts = [];
 
-				for (var j = 0; j < lonSim; ++j) {
-					var efecto = new THREE.Vector3();
+        for (var j = 0; j < lonSim; ++j) {
+          var efecto = new THREE.Vector3();
 
-					cargas.forEach(function (carga2) {
-						var dir = new THREE.Vector3().subVectors(posSim, carga2.posicion);
+          cargas.forEach(function (carga2) {
+            var dir = new THREE.Vector3().subVectors(posSim, carga2.posicion);
 
-						dir.setLength(carga2.valor / dir.lengthSq());
-						
-						if (carga.valor < 0) {
-							dir.negate();
-						}
+            dir.setLength(carga2.valor / dir.lengthSq());
+            
+            if (carga.valor < 0) {
+              dir.negate();
+            }
 
-						efecto.add(dir);
-					});
+            efecto.add(dir);
+          });
 
-					efecto.normalize();
+          efecto.normalize();
 
-					posSim.add(efecto);
+          posSim.add(efecto);
 
-					verts.push(posSim.clone());
+          verts.push(posSim.clone());
 
-					var tooClose = false;
-					var closeEnough = false;
+          var tooClose = false;
+          var closeEnough = false;
 
-					cargas.forEach(function (carga2) {
-						var dist = carga2.posicion.distanceTo(posSim);
+          cargas.forEach(function (carga2) {
+            var dist = carga2.posicion.distanceTo(posSim);
 
-						if (carga !== carga2 && dist <= radCarga) {
-							tooClose = true;
-						}
+            if (carga !== carga2 && dist <= radCarga) {
+              tooClose = true;
+            }
 
-						if (dist <= 10000) {
-							closeEnough = closeEnough || true;
-						}
-					});
+            if (dist <= 10000) {
+              closeEnough = closeEnough || true;
+            }
+          });
 
-					if (tooClose || !closeEnough) {
-						break;
-					}
-				}
+          if (tooClose || !closeEnough) {
+            break;
+          }
+        }
 
-				var material = new THREE.LineBasicMaterial({
-					color: 0x0000FF
-				});
+        var material = new THREE.LineBasicMaterial({
+          color: 0x0000FF
+        });
 
-				var geometry = new THREE.Geometry();
-				geometry.vertices = verts;
+        var geometry = new THREE.Geometry();
+        geometry.vertices = verts;
 
-				var line = new THREE.Line(geometry, material);
-				scene.add(line);
-			}
-		});
+        var line = new THREE.Line(geometry, material);
+        scene.add(line);
+      }
+    });
 
-		console.profileEnd('update');
-	}
+    console.profileEnd('update');
+  }
 
-	function init() {
-		camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 100000);
-		camera.position.z = 1000;
+  function init() {
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 100000);
+    camera.position.z = 1000;
 
-		scene = new THREE.Scene();
+    scene = new THREE.Scene();
 
-		renderer = new THREE.WebGLRenderer({alpha: true});
-		renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer = new THREE.WebGLRenderer({alpha: true});
+    renderer.setSize(window.innerWidth, window.innerHeight);
 
-		controls = new THREE.TrackballControls(camera);
-		controls.addEventListener('change', render);
+    controls = new THREE.TrackballControls(camera);
+    controls.addEventListener('change', render);
 
-		document.body.appendChild(renderer.domElement);
-	}
+    document.body.appendChild(renderer.domElement);
+  }
 
-	function render() {
-		renderer.render(scene, camera);
-	}
+  function render() {
+    renderer.render(scene, camera);
+  }
 
-	function animate() {
-		requestAnimationFrame(animate);
-		controls.update();
-	}
+  function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+  }
 
-	window.addEventListener('load', function () {
-		document.body.style.overflow = 'hidden';
+  window.addEventListener('load', function () {
+    document.body.style.overflow = 'hidden';
 
-		init();
-		update();
-		render();
-		animate();
-	});
+    init();
+    update();
+    render();
+    animate();
+  });
 </script>

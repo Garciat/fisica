@@ -68,7 +68,7 @@
 
     scene.add(particle);
     
-    renderer = Detector.webgl ? new THREE.WebGLRenderer() : new THREE.CanvasRenderer();
+    renderer = Detector.webgl ? new THREE.WebGLRenderer({alpha:true}) : new THREE.CanvasRenderer();
     renderer.setSize(window.innerWidth, window.innerHeight);
 
     container.append(renderer.domElement);

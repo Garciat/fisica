@@ -1,4 +1,4 @@
-module LinearAlgebra where
+module Math.Vec3 where
 
 import Math
 import Data.Foldable
@@ -52,6 +52,12 @@ length v = sqrt $ length_sq v
 
 norm :: Vec3 -> Vec3
 norm v = v ./ length v
+
+distance_to_sq :: Vec3 -> Vec3 -> Number
+distance_to_sq v w = length_sq (w - v)
+
+distance_to :: Vec3 -> Vec3 -> Number
+distance_to v w = sqrt $ distance_to_sq v w
 
 v3_sum :: [Vec3] -> Vec3
 v3_sum vs = foldl (+) (v3 0 0 0) vs

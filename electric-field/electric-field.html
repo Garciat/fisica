@@ -330,6 +330,17 @@ function init() {
     sim_vector_field(scene, system, 400, 400, 20, 15, 0x0000FF);
   });
   
+  add_scene_option('Tripole 2D Electric Field', function () {
+    var system = new ChargeSystem();
+    system.addCharge(+1, +200, 0, 0);
+    system.addCharge(+1, -200, 0, 0);
+    system.addCharge(-1,    0, 0, 0);
+    
+    var points = makeCirclePoints(system, 5, 50, 1);
+    
+    work(scene, system, points);
+  });
+  
   add_scene_option('Quadrupole 2D Electric Field', function () {
     var system = new ChargeSystem();
     system.addCharge(+1, +200, 0, 0);

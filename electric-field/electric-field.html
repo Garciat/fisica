@@ -81,11 +81,7 @@ ChargeSystem.prototype.isTooClose = function (point, limit) {
   return false;
 };
 
-function electricFieldLine(system, buffer, init, depth, near_lim, far_lim) {
-  var position = init.clone();
-  var v1 = new Vec3();
-  var v2 = new Vec3();
-  
+function electricFieldLine(system, buffer, position, depth, near_lim, far_lim, v1, v2) {
   var count = 0;
   
   writeVec3(buffer, count++, position);
@@ -116,10 +112,13 @@ function electricFieldLineMany(system, init_points, depth, near_lim, far_lim) {
   var buffer  = new Float32Array(3 * (depth + 1));
   var lines   = [];
   
+  var v1 = new Vec3();
+  var v2 = new Vec3();
+  
   for (var i = 0; i < init_points.length; ++i) {
-    var init = init_points[i];
+    var init = init_points[i].clone();
     
-    var count = electricFieldLine(system, buffer, init, depth, near_lim, far_lim);
+    var count = electricFieldLine(system, buffer, init, depth, near_lim, far_lim, v1, v2);
     var vertices = new Float32Array(buffer.subarray(0, 3 * count));
     
     lines.push(vertices);

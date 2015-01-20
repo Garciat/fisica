@@ -42,7 +42,9 @@ function Charge(value, position) {
 
 Charge.prototype.electricFieldAt = function(point, v) {
   v.subVectors(point, this.position);
-  v.setLength(this.value / v.lengthSq());
+  var vl  = v.lengthSq();
+  var div = vl * Math.sqrt(vl);
+  v.multiplyScalar(this.value / div);
   return v;
 };
 

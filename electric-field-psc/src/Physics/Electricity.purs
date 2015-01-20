@@ -16,9 +16,11 @@ charge val pos = { value: val, position: pos }
 
 electric_field :: Charge -> Vec3 -> Vec3
 electric_field charge point =
-  norm d .* (charge.value / length_sq d)
+  d .* (charge.value / dl')
   where
-    d = point - charge.position
+    d   = point - charge.position
+    dl  = length_sq d
+    dl' = dl * sqrt dl
 
 electric_field_k :: Charge -> Vec3 -> Vec3
 electric_field_k c p = electric_field c p .* vacuum_k

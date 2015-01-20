@@ -113,8 +113,6 @@ function electricFieldLine(system, buffer, init, depth, near_lim, far_lim) {
 };
 
 function electricFieldLineMany(system, init_points, depth, near_lim, far_lim) {
-  console.profile('simulation');
-  
   var buffer  = new Float32Array(3 * (depth + 1));
   var lines   = [];
   
@@ -126,8 +124,6 @@ function electricFieldLineMany(system, init_points, depth, near_lim, far_lim) {
     
     lines.push(vertices);
   }
-  
-  console.profileEnd();
   
   return lines;
 };
@@ -222,7 +218,9 @@ function work(scene, system, points) {
     placeChargeSphere(scene, charges[i]);
   }
   
+  console.profile('simulation');
   var lines = electricFieldLineMany(system, points, depth, near_lim, far_lim);
+  console.profileEnd();
   
   for (var i = 0; i < lines.length; ++i) {
     var vertices = lines[i];

@@ -1,0 +1,430 @@
+<meta name="viewport" content="initial-scale=1, maximum-scale=1">
+
+<script src="../lib/three.r70.min.js"></script>
+<script src="../lib/TrackballControls.js"></script>
+
+<style>
+body {
+  margin: 0;
+  overflow: hidden;
+}
+
+#options {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  
+  margin: 10px;
+  padding: 10px;
+  
+  background: rgba(0, 0, 0, 0.8);
+}
+</style>
+
+<div id="options">
+  <select>
+  </select>
+</div>
+
+<script>
+"use strict";
+
+var Vec3 = THREE.Vector3;
+
+function writeVec3(buffer, i, vec) {
+  buffer[i*3 + 0] = vec.x;
+  buffer[i*3 + 1] = vec.y;
+  buffer[i*3 + 2] = vec.z;
+}
+
+function Charge(value, x, y, z) {
+  this.value = value;
+  this.x = x;
+  this.y = y;
+  this.z = y;
+}
+
+Charge.prototype.positionVec = function () {
+  return new Vec3(this.x, this.y, this.z);
+};
+
+Charge.prototype.electricFieldAt = function(x, y, z, v) {
+  var dx = x - this.x;
+  var dy = y - this.y;
+  var dz = z - this.z;
+  
+  var d = dx*dx + dy*dy + dz*dz;
+  
+  var factor = this.value / (d * Math.sqrt(d));
+  
+  dx *= factor;
+  dy *= factor;
+  dz *= factor;
+  
+  v.set(dx, dy, dz);
+  
+  return v;
+};
+
+function ChargeSystem() {
+  this.charges = [];
+}
+
+ChargeSystem.prototype.addCharge = function (value, x, y, z) {
+  this.charges.push(new Charge(value, x, y, z));
+};
+
+ChargeSystem.prototype.electricFieldAt = function (point, v, w) {
+  v.set(0, 0, 0);
+  
+  for (var i = 0; i < this.charges.length; ++i) {
+    var field = this.charges[i].electricFieldAt(point, w);
+    v.add(field);
+  }
+  
+  return v;
+};
+
+ChargeSystem.prototype.isTooClose = function (point, limit) {
+  for (var i = 0; i < this.charges.length; ++i) {
+    var charge = this.charges[i];
+    
+    if (point.distanceTo(charge.position) < limit) {
+      return true;
+    }
+  }
+  
+  return false;
+};
+
+function electricFieldLine(charges, buffer, px, py, pz, depth, near_lim, far_lim) {
+  var k = 0;
+  
+  buffer[k*3 + 0] = px;
+  buffer[k*3 + 1] = py;
+  buffer[k*3 + 2] = pz;
+  k += 1;
+  
+  var far_sq = far_lim * far_lim;
+  var near_sq = near_lim * near_lim;
+  
+  for (var i = 1; i < depth + 1; ++i) {
+    var ex = 0;
+    var ey = 0;
+    var ez = 0;
+    
+    for (var j = 0; j < charges.length; ++j) {
+      var c = charges[j];
+      
+      var dx = px - c.x;
+      var dy = py - c.y;
+      var dz = pz - c.z;
+      
+      var d = dx*dx + dy*dy + dz*dz;
+      
+      var factor = c.value / (d * Math.sqrt(d));
+      
+      dx *= factor;
+      dy *= factor;
+      dz *= factor;
+      
+      ex += dx;
+      ey += dy;
+      ez += dz;
+    }
+    
+    var factor = 1 / Math.sqrt(ex*ex + ey*ey + ez*ez);
+    
+    ex *= factor;
+    ey *= factor;
+    ez *= factor;
+    
+    px += ex;
+    py += ey;
+    pz += ez;
+    
+    buffer[k*3 + 0] = px;
+    buffer[k*3 + 1] = py;
+    buffer[k*3 + 2] = pz;
+    k += 1;
+    
+    if (i % 10 == 0) {
+      var dist = px*px + py*py + pz*pz;
+      
+      if (dist > far_sq) {
+        break;
+      }
+      
+      for (var j = 0; j < charges.length; ++j) {
+        var c = charges[j];
+        
+        var dx = px - c.x;
+        var dy = py - c.y;
+        var dz = pz - c.z;
+        
+        var d = dx*dx + dy*dy + dz*dz;
+        
+        if (d < near_sq) {
+          return k;
+        }
+      }
+    }
+  }
+  
+  return k;
+};
+
+function electricFieldLineMany(system, init_points, depth, near_lim, far_lim) {
+  var buffer  = new Float32Array(3 * (depth + 1));
+  var lines   = [];
+  
+  for (var i = 0; i < init_points.length; ++i) {
+    var init = init_points[i];
+    
+    var count = electricFieldLine(system.charges, buffer, init.x, init.y, init.z, depth, near_lim, far_lim);
+    var vertices = new Float32Array(buffer.subarray(0, 3 * count));
+    
+    lines.push(vertices);
+  }
+  
+  return lines;
+};
+
+function makeRotations(points, axis, rads, count) {
+  var result = [];
+  
+  var slice = rads / count;
+  var angle = 0;
+  
+  for (var i = 0; i < points.length; ++i) {
+    var source = points[i];
+    
+    for (var j = 0; j < count; ++j) {
+      var point = source.clone();
+      point.applyAxisAngle(axis, angle);
+    
+      angle += slice;
+      
+      result.push(point);
+    }
+  }
+  
+  return result;
+}
+
+function xyCirclePoints(radius, count) {
+  var source = new Vec3(0, radius, 0);
+  var axis = new Vec3(0, 0, 1);
+  
+  return makeRotations([source], axis, 2 * Math.PI, count);
+}
+
+function xyzCirclePoints(radius, count, rotations) {
+  var points = xyCirclePoints(radius, count);
+  var axis = new Vec3(1, 0, 0);
+  
+  return makeRotations(points, axis, Math.PI, rotations);
+}
+
+function makeCirclePoints(system, radius, count, rots) {
+  var points = [];
+  
+  var charges = system.charges;
+  var circle = xyzCirclePoints(5, count, rots);
+  
+  for (var i = 0; i < charges.length; ++i) {
+    var charge = charges[i];
+    
+    if (charge.value < 0) continue;
+    
+    for (var j = 0; j < circle.length; ++j) {
+      var point = new Vec3();
+      point.addVectors(charge.positionVec(), circle[j]);
+      points.push(point);
+    }
+  }
+  
+  return points;
+}
+
+var sphere_geometry = new THREE.SphereGeometry(10, 16, 16);
+var sphere_material = new THREE.MeshNormalMaterial();
+
+function placeChargeSphere(scene, charge) {
+  var mesh = new THREE.Mesh(sphere_geometry, sphere_material);
+  mesh.position.copy(charge.positionVec());
+  
+  scene.add(mesh);
+}
+
+function placeLine(scene, vertices) {
+  var material = new THREE.LineBasicMaterial({
+    color: 0x0000FF
+  });
+  
+  var geometry = new THREE.BufferGeometry();
+  geometry.addAttribute('position', new THREE.BufferAttribute(vertices, 3));
+  
+  var line = new THREE.Line(geometry, material);
+  scene.add(line);
+}
+
+function work(scene, system, points) {
+  var depth     = 100000;
+  var near_lim  = 1;
+  var far_lim   = 10000;
+  
+  var charges = system.charges;
+  
+  for (var i = 0; i < charges.length; ++i) {
+    placeChargeSphere(scene, charges[i]);
+  }
+  
+  console.profile('simulation');
+  var lines = electricFieldLineMany(system, points, depth, near_lim, far_lim);
+  console.profileEnd();
+  
+  for (var i = 0; i < lines.length; ++i) {
+    var vertices = lines[i];
+    
+    placeLine(scene, vertices);
+  }
+}
+
+function sim_vector_field(scene, system, w, h, step, size, color) {
+  var charges = system.charges;
+  
+  for (var i = 0; i < charges.length; ++i) {
+    placeChargeSphere(scene, charges[i]);
+  }
+  
+  var point = new Vec3();
+  var v1 = new Vec3();
+  var v2 = new Vec3();
+  
+  for (var x = -w; x <= w; x += step) {
+    for (var y = -h; y <= h; y += step) {
+      point.set(x, y, 0);
+      
+      var field = system.electricFieldAt(point, v1, v2);
+      field.normalize();
+      
+      var arrow = new THREE.ArrowHelper(field, point, size, color, 7, 4);
+      scene.add(arrow);
+    }
+  }
+}
+
+function init() {
+  var camera, scene, renderer, controls;
+  
+  var camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 1, 100000);
+  camera.position.z = 1000;
+  
+  var scene = new THREE.Scene();
+  
+  function render() {
+    renderer.render(scene, camera);
+  }
+  
+  var renderer = new THREE.WebGLRenderer({alpha: true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  
+  document.body.appendChild(renderer.domElement);
+  
+  var controls = new THREE.TrackballControls(camera, renderer.domElement);
+  controls.addEventListener('change', render);
+  
+  function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+  }
+  
+  var select = document.querySelector('#options select');
+  var scene_options = [];
+  
+  function add_scene_option(name, callback) {
+    var option = document.createElement('option');
+    option.innerText = name;
+    
+    select.appendChild(option);
+    
+    scene_options.push(callback);
+  }
+  
+  function select_scene_option(index) {
+    // free objects?
+    for (var i = 0; i < scene.children.length; ++i) {
+      scene.remove(scene.children[i]);
+    }
+    
+    scene = new THREE.Scene();
+    
+    scene_options[index]();
+    
+    // redraw
+    render();
+  }
+  
+  add_scene_option('Dipole 2D Electric Field', function () {
+    var system = new ChargeSystem();
+    system.addCharge(+1, +200, 0, 0);
+    system.addCharge(-1, -200, 0, 0);
+    
+    var points = makeCirclePoints(system, 5, 20, 1);
+    
+    work(scene, system, points);
+  });
+  
+  add_scene_option('Dipole 3D Electric Field', function () {
+    var system = new ChargeSystem();
+    system.addCharge(+1, +200, 0, 0);
+    system.addCharge(-1, -200, 0, 0);
+    
+    var points = makeCirclePoints(system, 5, 20, 5);
+    
+    work(scene, system, points);
+  });
+  
+  add_scene_option('Dipole 2D Electric Vector Field', function () {
+    var system = new ChargeSystem();
+    system.addCharge(+1, +200, 0, 0);
+    system.addCharge(-1, -200, 0, 0);
+    
+    sim_vector_field(scene, system, 400, 400, 20, 15, 0x0000FF);
+  });
+  
+  add_scene_option('Tripole 2D Electric Field', function () {
+    var system = new ChargeSystem();
+    system.addCharge(+1, +200, 0, 0);
+    system.addCharge(+1, -200, 0, 0);
+    system.addCharge(-1,    0, 0, 0);
+    
+    var points = makeCirclePoints(system, 5, 50, 1);
+    
+    work(scene, system, points);
+  });
+  
+  add_scene_option('Quadrupole 2D Electric Field', function () {
+    var system = new ChargeSystem();
+    system.addCharge(+1, +200, 0, 0);
+    system.addCharge(+1, -200, 0, 0);
+    system.addCharge(-1, 0, +200, 0);
+    system.addCharge(-1, 0, -200, 0);
+    
+    var points = makeCirclePoints(system, 5, 20, 1);
+    
+    work(scene, system, points);
+  });
+  
+  select.addEventListener('change', function (ev) {
+    select_scene_option(ev.target.selectedIndex);
+  });
+  
+  select_scene_option(0);
+  animate();
+}
+
+window.addEventListener('load', init);
+
+</script>

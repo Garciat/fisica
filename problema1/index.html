@@ -1,0 +1,217 @@
+<meta name="viewport" content="initial-scale=1, maximum-scale=1">
+
+<script src="../lib/three.r70.min.js"></script>
+<script src="../lib/TrackballControls.js"></script>
+
+<style>
+body {
+  margin: 0;
+  overflow: hidden;
+}
+
+</style>
+
+<script>
+"use strict";
+
+var Vec3 = THREE.Vector3;
+
+function makeLineVW(opts, f) {
+  var v = new Vec3();
+  var w = new Vec3();
+  
+  f(v, w);
+  
+  var material = new THREE.LineBasicMaterial(opts);
+  
+  var geometry = new THREE.Geometry();
+  geometry.vertices.push(v);
+  geometry.vertices.push(w);
+  
+  var line = new THREE.Line(geometry, material);
+  
+  return line;
+}
+
+function putLineVW(scene, opts, f) {
+  scene.add(makeLineVW(opts, f));
+}
+
+function showVec3(scene, v, color, width, origin) {
+  origin = origin.clone();
+  var dir = v.clone().normalize();
+  var length = v.length();
+
+  var arrowHelper = new THREE.ArrowHelper(dir, origin, length, color, 2.5, 1);
+  arrowHelper.line.material.linewidth = width;
+  
+  scene.add(arrowHelper);
+}
+
+function makeBox(w, h, d, color) {
+  var material = new THREE.LineBasicMaterial();
+  
+  var geometry = new THREE.BoxGeometry(w, h, d);
+  
+  var mesh = new THREE.Mesh(geometry, material);
+  
+  var egh = new THREE.EdgesHelper(mesh, color);
+  
+  var box = new THREE.Object3D();
+  box.add(egh);
+  
+  return box;
+}
+
+function buildAxes( length ) {
+  var axes = new THREE.Object3D();
+
+  axes.add( buildAxis( new Vec3( 0, 0, 0 ), new Vec3( length, 0, 0 ), 0xFF0000, false ) ); // +X
+  axes.add( buildAxis( new Vec3( 0, 0, 0 ), new Vec3( -length, 0, 0 ), 0xFF0000, true) ); // -X
+  axes.add( buildAxis( new Vec3( 0, 0, 0 ), new Vec3( 0, length, 0 ), 0x00FF00, false ) ); // +Y
+  axes.add( buildAxis( new Vec3( 0, 0, 0 ), new Vec3( 0, -length, 0 ), 0x00FF00, true ) ); // -Y
+  axes.add( buildAxis( new Vec3( 0, 0, 0 ), new Vec3( 0, 0, length ), 0x0000FF, false ) ); // +Z
+  axes.add( buildAxis( new Vec3( 0, 0, 0 ), new Vec3( 0, 0, -length ), 0x0000FF, true ) ); // -Z
+
+  return axes;
+}
+
+function buildAxis( src, dst, colorHex, dashed ) {
+  var geom = new THREE.Geometry(),
+      mat; 
+
+  if(dashed) {
+    mat = new THREE.LineDashedMaterial({ linewidth: 1, color: colorHex, dashSize: 3, gapSize: 3 });
+  } else {
+    mat = new THREE.LineBasicMaterial({ linewidth: 1, color: colorHex });
+  }
+
+  geom.vertices.push( src.clone() );
+  geom.vertices.push( dst.clone() );
+  geom.computeLineDistances();
+
+  var axis = new THREE.Line( geom, mat, THREE.LinePieces );
+
+  return axis;
+}
+
+function stage(scene, a, b, c, h, ab) {
+  var axes = buildAxes(200);
+  scene.add(axes);
+  
+  var box = makeBox(a, b, c, 0x000000);
+  box.position.set(a/2, b/2, c/2);
+  scene.add(box);
+  
+  var currentMatOpts = {
+    color: 0xAAAA00,
+    linewidth: 3
+  };
+  
+  var dispMatOpts = {
+    color: 0xAA0000,
+    linewidth: 2
+  };
+  
+  var magMatOpts = {
+    color: 0x00AAAA,
+    linewidth: 2
+  };
+  
+  // moving current
+  putLineVW(scene, currentMatOpts, function (v, w) {
+    v.set((a - ab)/2, h, 0);
+    w.copy(v).add(new Vec3(ab, 0, 0));
+  });
+  
+  // acting current
+  putLineVW(scene, currentMatOpts, function (v, w) {
+    v.set(a, 0, 0);
+    w.set(0, 0, c);
+  });
+  
+  var v1 = new Vec3(0, h, 0);
+  
+  showVec3(scene, v1, 0xAA0000, 2, new Vec3(a/2, 0, 0));
+  
+  var v2 = new Vec3(a/2, 0, -c);
+  v2.projectOnVector(new Vec3(a, 0, -c));
+  
+  var v3 = new Vec3(a/2, 0, -c)
+  v3.sub(v2);
+  
+  var o1 = v2.clone().add(new Vec3(0, 0, c));
+  
+  showVec3(scene, v3, 0xAA0000, 2, o1);
+  
+  var r1 = new Vec3();
+  r1.addVectors(v1, v3);
+  
+  showVec3(scene, r1, 0xAA0000, 2, o1);
+  
+  var v4 = new Vec3(a, 0, -c);
+  v4.normalize();
+  
+  showVec3(scene, v4.clone().setLength(5), 0xAA00AA, 2, o1);
+  
+  var ub1 = new Vec3();
+  ub1.crossVectors(v4, r1);
+  ub1.normalize();
+  
+  showVec3(scene, ub1.clone().setLength(10), 0x00AAAA, 3, new Vec3(a/2, h, 0));
+  
+  var ul = new Vec3(-ab, 0, 0);
+  ul.normalize();
+  
+  showVec3(scene, ul.clone().setLength(5), 0xAA00AA, 3, new Vec3(a/2, h, 0));
+  
+  var uf1 = new Vec3();
+  uf1.crossVectors(ul, ub1);
+  uf1.normalize();
+  
+  showVec3(scene, uf1.clone().setLength(10), 0x00AA00, 3, new Vec3(a/2, h, 0));
+}
+
+function init() {
+  var a = 40;
+  var b = 20;
+  var c = 30;
+  var h = b - 5;
+  var ab = a - 10;
+  
+  var camera, scene, renderer, controls;
+  
+  var camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 1, 100000);
+  camera.position.set(a/2, 60, 80);
+  camera.lookAt(new Vec3(a/2, 0, 0));
+  
+  var scene = new THREE.Scene();
+  
+  stage(scene, a, b, c, h, ab);
+  
+  function render() {
+    renderer.render(scene, camera);
+  }
+  
+  var renderer = new THREE.WebGLRenderer({alpha: true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  
+  document.body.appendChild(renderer.domElement);
+  
+  var controls = new THREE.TrackballControls(camera, renderer.domElement);
+  // controls reset previous call to camera.lookAt
+  controls.target = new Vec3(a/2, 0, 0);
+  
+  function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+  }
+  
+  controls.addEventListener('change', render);
+  
+  animate();
+}
+
+window.addEventListener('load', init);
+
+</script>

@@ -16,27 +16,6 @@ body {
 
 var Vec3 = THREE.Vector3;
 
-function makeLineVW(opts, f) {
-  var v = new Vec3();
-  var w = new Vec3();
-  
-  f(v, w);
-  
-  var material = new THREE.LineBasicMaterial(opts);
-  
-  var geometry = new THREE.Geometry();
-  geometry.vertices.push(v);
-  geometry.vertices.push(w);
-  
-  var line = new THREE.Line(geometry, material);
-  
-  return line;
-}
-
-function putLineVW(scene, opts, f) {
-  scene.add(makeLineVW(opts, f));
-}
-
 function showVec3(scene, v, color, width, origin) {
   origin = origin.clone();
   var dir = v.clone().normalize();
@@ -103,39 +82,20 @@ function stage(scene, a, b, c, h, ab) {
   box.position.set(a/2, b/2, c/2);
   scene.add(box);
   
-  var currentMatOpts = {
-    color: 0xAAAA00,
-    linewidth: 3
-  };
+  var c1 = new Vec3(a, 0, -c);
   
-  var dispMatOpts = {
-    color: 0xAA0000,
-    linewidth: 2
-  };
+  showVec3(scene, c1, 0xAAAA00, 3, new Vec3(0, 0, c));
   
-  var magMatOpts = {
-    color: 0x00AAAA,
-    linewidth: 2
-  };
+  var c2 = new Vec3(-ab, 0, 0);
   
-  // moving current
-  putLineVW(scene, currentMatOpts, function (v, w) {
-    v.set((a - ab)/2, h, 0);
-    w.copy(v).add(new Vec3(ab, 0, 0));
-  });
-  
-  // acting current
-  putLineVW(scene, currentMatOpts, function (v, w) {
-    v.set(a, 0, 0);
-    w.set(0, 0, c);
-  });
+  showVec3(scene, c2, 0xAAAA00, 3, new Vec3(a-(a-ab)/2, h, 0));
   
   var v1 = new Vec3(0, h, 0);
   
   showVec3(scene, v1, 0xAA0000, 2, new Vec3(a/2, 0, 0));
   
   var v2 = new Vec3(a/2, 0, -c);
-  v2.projectOnVector(new Vec3(a, 0, -c));
+  v2.projectOnVector(c1);
   
   var v3 = new Vec3(a/2, 0, -c)
   v3.sub(v2);
@@ -149,8 +109,7 @@ function stage(scene, a, b, c, h, ab) {
   
   showVec3(scene, r1, 0xAA0000, 2, o1);
   
-  var v4 = new Vec3(a, 0, -c);
-  v4.normalize();
+  var v4 = c1.clone().normalize();
   
   showVec3(scene, v4.clone().setLength(5), 0xAA00AA, 2, o1);
   
@@ -158,18 +117,19 @@ function stage(scene, a, b, c, h, ab) {
   ub1.crossVectors(v4, r1);
   ub1.normalize();
   
-  showVec3(scene, ub1.clone().setLength(10), 0x00AAAA, 3, new Vec3(a/2, h, 0));
+  var o2 = new Vec3(a/2, h, 0);
   
-  var ul = new Vec3(-ab, 0, 0);
-  ul.normalize();
+  showVec3(scene, ub1.clone().setLength(10), 0x00AAAA, 3, o2);
   
-  showVec3(scene, ul.clone().setLength(5), 0xAA00AA, 3, new Vec3(a/2, h, 0));
+  var uc2 = c2.clone().normalize();
+  
+  showVec3(scene, uc2.clone().setLength(5), 0xAA00AA, 3, o2);
   
   var uf1 = new Vec3();
-  uf1.crossVectors(ul, ub1);
+  uf1.crossVectors(uc2, ub1);
   uf1.normalize();
   
-  showVec3(scene, uf1.clone().setLength(10), 0x00AA00, 3, new Vec3(a/2, h, 0));
+  showVec3(scene, uf1.clone().setLength(10), 0x00AA00, 3, o2);
 }
 
 function init() {

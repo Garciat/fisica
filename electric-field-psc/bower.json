@@ -9,5 +9,9 @@
     "node_modules",
     "bower_components",
     "output"
-  ]
+  ],
+  "dependencies": {
+    "purescript-foldable-traversable": "~0.3.0",
+    "purescript-math": "~0.1.0"
+  }
 }

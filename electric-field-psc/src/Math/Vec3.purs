@@ -11,28 +11,32 @@ v3 x y z = Vec3 $ { x: x, y: y, z: z }
 instance showVec3 :: Show Vec3 where
   show (Vec3 v) = "(" ++ show v.x ++ ", " ++ show v.y ++ ", " ++ show v.z ++ ")"
 
-instance numVec3 :: Num Vec3 where
+instance semiringVec3 :: Semiring Vec3 where
   (+) (Vec3 v) (Vec3 w) = Vec3 $ { x: v.x + w.x
                                  , y: v.y + w.y
                                  , z: v.z + w.z }
-  
-  (-) (Vec3 v) (Vec3 w) = Vec3 $ { x: v.x - w.x
-                                 , y: v.y - w.y
-                                 , z: v.z - w.z }
   
   (*) (Vec3 v) (Vec3 w) = Vec3 $ { x: v.x * w.x
                                  , y: v.y * w.y
                                  , z: v.z * w.z }
   
+  zero = Vec3 { x: 0, y: 0, z: 0}
+  
+  one = Vec3 { x: 1, y: 1, z: 1 }
+
+instance ringVec3 :: Ring Vec3 where
+  (-) (Vec3 v) (Vec3 w) = Vec3 $ { x: v.x - w.x
+                                 , y: v.y - w.y
+                                 , z: v.z - w.z }
+
+instance moduleSemiringVec3 :: ModuloSemiring Vec3 where
   (/) (Vec3 v) (Vec3 w) = Vec3 $ { x: v.x / w.x
                                  , y: v.y / w.y
                                  , z: v.z / w.z }
   
-  (%) (Vec3 v) (Vec3 w) = Vec3 $ { x: v.x % w.x
-                                 , y: v.y % w.y
-                                 , z: v.z % w.z }
-  
-  negate (Vec3 v) = Vec3 $ { x: -v.x, y: -v.y, z: -v.z }
+  mod (Vec3 v) (Vec3 w) = Vec3 $ { x: v.x `mod` w.x
+                                 , y: v.y `mod` w.y
+                                 , z: v.z `mod` w.z }
 
 (.*) :: Vec3 -> Number -> Vec3
 (.*) (Vec3 v) n = Vec3 $ { x: v.x * n

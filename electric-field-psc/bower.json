@@ -11,7 +11,8 @@
     "output"
   ],
   "dependencies": {
-    "purescript-foldable-traversable": "~0.3.0",
-    "purescript-math": "~0.1.0"
+    "purescript-foldable-traversable": "*",
+    "purescript-math": "*",
+    "purescript-console": "~0.1.1"
   }
 }

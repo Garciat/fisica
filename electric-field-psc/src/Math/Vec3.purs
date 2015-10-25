@@ -1,5 +1,7 @@
 module Math.Vec3 where
 
+import Prelude
+
 import Math
 import Data.Foldable
 
@@ -12,27 +14,27 @@ instance showVec3 :: Show Vec3 where
   show (Vec3 v) = "(" ++ show v.x ++ ", " ++ show v.y ++ ", " ++ show v.z ++ ")"
 
 instance semiringVec3 :: Semiring Vec3 where
-  (+) (Vec3 v) (Vec3 w) = Vec3 $ { x: v.x + w.x
+  add (Vec3 v) (Vec3 w) = Vec3 $ { x: v.x + w.x
                                  , y: v.y + w.y
                                  , z: v.z + w.z }
   
-  (*) (Vec3 v) (Vec3 w) = Vec3 $ { x: v.x * w.x
+  mul (Vec3 v) (Vec3 w) = Vec3 $ { x: v.x * w.x
                                  , y: v.y * w.y
                                  , z: v.z * w.z }
   
-  zero = Vec3 { x: 0, y: 0, z: 0}
+  zero = Vec3 { x: 0.0, y: 0.0, z: 0.0}
   
-  one = Vec3 { x: 1, y: 1, z: 1 }
+  one  = Vec3 { x: 1.0, y: 1.0, z: 1.0 }
 
 instance ringVec3 :: Ring Vec3 where
-  (-) (Vec3 v) (Vec3 w) = Vec3 $ { x: v.x - w.x
+  sub (Vec3 v) (Vec3 w) = Vec3 $ { x: v.x - w.x
                                  , y: v.y - w.y
                                  , z: v.z - w.z }
 
 instance moduleSemiringVec3 :: ModuloSemiring Vec3 where
-  (/) (Vec3 v) (Vec3 w) = Vec3 $ { x: v.x / w.x
-                                 , y: v.y / w.y
-                                 , z: v.z / w.z }
+  div (Vec3 v) (Vec3 w) = Vec3 $ { x: v.x * w.x
+                                 , y: v.y * w.y
+                                 , z: v.z * w.z }
   
   mod (Vec3 v) (Vec3 w) = Vec3 $ { x: v.x `mod` w.x
                                  , y: v.y `mod` w.y
@@ -63,5 +65,5 @@ distance_to_sq v w = length_sq (w - v)
 distance_to :: Vec3 -> Vec3 -> Number
 distance_to v w = sqrt $ distance_to_sq v w
 
-v3_sum :: [Vec3] -> Vec3
-v3_sum vs = foldl (+) (v3 0 0 0) vs
+v3_sum :: Array Vec3 -> Vec3
+v3_sum vs = foldl (+) (v3 0.0 0.0 0.0) vs
